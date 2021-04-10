@@ -9,6 +9,7 @@
 #include <Components/BoxComponent.h>
 #include <Components/SkeletalMeshComponent.h>
 #include <Camera/CameraComponent.h>
+#include <LevelSequence/Public/LevelSequenceActor.h>
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -39,6 +40,7 @@ void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	LevelSequencePlayer = LevelSequenceActor->GetSequencePlayer();
 }
 
 // Called every frame
@@ -47,10 +49,20 @@ void APlayerCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// Camera movement
-	CameraPivot->AddLocalRotation(FRotator(GetInputAxisValue("CameraV") * 60.f * DeltaTime, GetInputAxisValue("CameraH") * 60.f * DeltaTime, 0));
-	FRotator Rot = CameraPivot->GetComponentRotation();
-	CameraPivot->SetWorldRotation(FRotator(Rot.Pitch, Rot.Yaw, 0.f));
+	if (!TimeControlOn) {
+		CameraPivot->AddLocalRotation(FRotator(GetInputAxisValue("CameraV") * 60.f * DeltaTime, GetInputAxisValue("CameraH") * 60.f * DeltaTime, 0));
+		FRotator Rot = CameraPivot->GetComponentRotation();
+		CameraPivot->SetWorldRotation(FRotator(Rot.Pitch, Rot.Yaw, 0.f));
+	}
+	// Time control
+	else {
+		double CurrentTime = LevelSequencePlayer->GetCurrentTime().AsSeconds();
+		double Limit = LevelSequencePlayer->GetDuration().AsSeconds();
+		double Result = FMath::Clamp(CurrentTime + GetInputAxisValue("CameraH") * 2.f * DeltaTime, 0.0, Limit);
+		LevelSequencePlayer->JumpToSeconds(Result);
+	}
 
+	// Jumping
 	if (!JumpedThisFrame) {
 		FHitResult GroundCheck;
 		OnGround = GetWorld()->LineTraceSingleByChannel(GroundCheck, GetActorLocation(), GetActorLocation() - FVector(0, 0, GroundCheckDistance), ECC_Visibility);
@@ -100,6 +112,8 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAxis("CameraV");
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APlayerCharacter::Jump);
+	PlayerInputComponent->BindAction("TimeControl", IE_Pressed, this, &APlayerCharacter::StartTimeControl);
+	PlayerInputComponent->BindAction("TimeControl", IE_Released, this, &APlayerCharacter::EndTimeControl);
 }
 
 
@@ -109,4 +123,18 @@ void APlayerCharacter::Jump()
 		ZVelocity = JumpStrength;
 		JumpedThisFrame = true;
 	}
+}
+
+
+void APlayerCharacter::StartTimeControl()
+{
+	LevelSequencePlayer->Pause();
+	TimeControlOn = true;
+}
+
+
+void APlayerCharacter::EndTimeControl()
+{
+	LevelSequencePlayer->Play();
+	TimeControlOn = false;
 }

@@ -18,8 +18,8 @@ private:
 	float Gravity = 9.8f;
 	UPROPERTY(EditAnywhere)
 	float JumpStrength = 50.f;
-	UPROPERTY(EditAnywhere)
-	float GroundCheckDistance = 58.f;
+
+	static constexpr float GroundCheckDistance = 58.f;
 
 	float TerminalVelocity = 53.f;
 	float ZVelocity = 0.f;
@@ -29,8 +29,14 @@ private:
 	bool JumpedThisFrame = false;
 	bool AllowMovement = true;
 
+	bool TimeControlOn = false;
+
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class UUserWidget> PlayerHudRef;
+
+	UPROPERTY(EditAnywhere)
+	class ALevelSequenceActor* LevelSequenceActor;
+	class ULevelSequencePlayer* LevelSequencePlayer;
 
 	UPROPERTY(EditDefaultsOnly)
 	class UBoxComponent* Root;
@@ -61,4 +67,9 @@ public:
 private:
 	UFUNCTION()
 	void Jump();
+
+	UFUNCTION()
+	void StartTimeControl();
+	UFUNCTION()
+	void EndTimeControl();
 };
