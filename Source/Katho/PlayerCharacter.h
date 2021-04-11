@@ -15,9 +15,9 @@ private:
 	UPROPERTY(EditAnywhere)
 	float SpeedLimit = 500.f;
 	UPROPERTY(EditAnywhere)
-	float Gravity = 9.8f;
+	float Gravity = 7.4f;
 	UPROPERTY(EditAnywhere)
-	float JumpStrength = 50.f;
+	float JumpStrength = 2.8f;
 
 	static constexpr float GroundCheckDistance = 58.f;
 
@@ -28,25 +28,29 @@ private:
 	bool OnGround = false;
 	bool JumpedThisFrame = false;
 	bool AllowMovement = true;
+	FVector PlatformMotion = FVector::ZeroVector;
 
 	bool TimeControlOn = false;
+	float LevelCurrentTime;
+	float LevelTimePercent;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class UUserWidget> PlayerHudRef;
+	UPROPERTY(EditDefaultsOnly, DisplayName = "Player UI Blueprint")
+	TSubclassOf<class UUserWidget> PlayerUIBlueprint;
+	class UPlayerUI* PlayerUI;
 
 	UPROPERTY(EditAnywhere)
 	class ALevelSequenceActor* LevelSequenceActor;
 	class ULevelSequencePlayer* LevelSequencePlayer;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(VisibleAnywhere)
 	class UBoxComponent* Root;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(VisibleAnywhere)
 	class UPlayerMovement* MovementComponent;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(VisibleAnywhere)
 	class USkeletalMeshComponent* Model;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(VisibleAnywhere)
 	class USpringArmComponent* CameraPivot;
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(VisibleAnywhere)
 	class UCameraComponent* Camera;
 	
 public:
@@ -72,4 +76,6 @@ private:
 	void StartTimeControl();
 	UFUNCTION()
 	void EndTimeControl();
+	//UFUNCTION()
+	//void TimeControlTick();
 };

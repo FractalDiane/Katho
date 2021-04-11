@@ -4,12 +4,15 @@
 #include "PlayerCharacter.h"
 
 #include "PlayerMovement.h"
+#include "UI/PlayerUI.h"
+#include "Objects/MovingPlatformComponent.h"
 
 #include <GameFramework/SpringArmComponent.h>
 #include <Components/BoxComponent.h>
 #include <Components/SkeletalMeshComponent.h>
 #include <Camera/CameraComponent.h>
 #include <LevelSequence/Public/LevelSequenceActor.h>
+#include <Blueprint/UserWidget.h>
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -39,8 +42,13 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	LevelSequencePlayer = LevelSequenceActor->GetSequencePlayer();
+	if (LevelSequenceActor) {
+		LevelSequencePlayer = LevelSequenceActor->GetSequencePlayer();
+	}
+
+	UUserWidget* Widget = CreateWidget(GetWorld(), PlayerUIBlueprint, TEXT("PlayerUI"));
+	PlayerUI = Cast<UPlayerUI>(Widget);
+	Widget->AddToViewport();
 }
 
 // Called every frame
@@ -48,6 +56,14 @@ void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (LevelSequenceActor) {
+		LevelCurrentTime = LevelSequencePlayer->GetCurrentTime().AsSeconds();
+		float Duration = LevelSequencePlayer->GetDuration().AsSeconds();
+		LevelTimePercent = LevelCurrentTime / Duration;
+
+		PlayerUI->SetTimeSigilPosition(LevelTimePercent, TimeControlOn);
+	}
+	
 	// Camera movement
 	if (!TimeControlOn) {
 		CameraPivot->AddLocalRotation(FRotator(GetInputAxisValue("CameraV") * 60.f * DeltaTime, GetInputAxisValue("CameraH") * 60.f * DeltaTime, 0));
@@ -55,18 +71,26 @@ void APlayerCharacter::Tick(float DeltaTime)
 		CameraPivot->SetWorldRotation(FRotator(Rot.Pitch, Rot.Yaw, 0.f));
 	}
 	// Time control
-	else {
-		double CurrentTime = LevelSequencePlayer->GetCurrentTime().AsSeconds();
-		double Limit = LevelSequencePlayer->GetDuration().AsSeconds();
-		double Result = FMath::Clamp(CurrentTime + GetInputAxisValue("CameraH") * 2.f * DeltaTime, 0.0, Limit);
+	else if (LevelSequenceActor) {
+		float Duration = LevelSequencePlayer->GetDuration().AsSeconds();
+		float Result = FMath::Clamp(LevelCurrentTime + GetInputAxisValue("CameraH") * 2.f * DeltaTime, 0.f, Duration);
 		LevelSequencePlayer->JumpToSeconds(Result);
 	}
+
+	PlatformMotion = FVector::ZeroVector;
 
 	// Jumping
 	if (!JumpedThisFrame) {
 		FHitResult GroundCheck;
 		OnGround = GetWorld()->LineTraceSingleByChannel(GroundCheck, GetActorLocation(), GetActorLocation() - FVector(0, 0, GroundCheckDistance), ECC_Visibility);
 		ZVelocity = OnGround ? 0.f : FMath::Max(ZVelocity - Gravity * DeltaTime, -TerminalVelocity);
+
+		if (GroundCheck.GetActor()) {
+			auto* Comp = Cast<UMovingPlatformComponent>(GroundCheck.GetActor()->GetComponentByClass(UMovingPlatformComponent::StaticClass()));
+			if (Comp) {
+				PlatformMotion = Comp->GetDelta();
+			}
+		}
 	}
 
 	JumpedThisFrame = false;
@@ -86,7 +110,8 @@ void APlayerCharacter::Tick(float DeltaTime)
 		Motion = FMath::Lerp(Motion, MotionTarget, DeltaTime * 10.f);
 		Motion.Z = ZVelocity;
 
-		FVector FinalMotion = Motion * SpeedLimit * DeltaTime;
+		FVector FinalMotion = (Motion) * SpeedLimit * DeltaTime;
+		FinalMotion += PlatformMotion;
 		MovementComponent->AddInputVector(FinalMotion);
 		Moving = !MotionTarget.IsZero();
 
@@ -114,6 +139,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APlayerCharacter::Jump);
 	PlayerInputComponent->BindAction("TimeControl", IE_Pressed, this, &APlayerCharacter::StartTimeControl);
 	PlayerInputComponent->BindAction("TimeControl", IE_Released, this, &APlayerCharacter::EndTimeControl);
+	//PlayerInputComponent->BindAction("TimeControlTick", IE_Pressed, this, &APlayerCharacter::TimeControlTick);
 }
 
 
@@ -128,13 +154,30 @@ void APlayerCharacter::Jump()
 
 void APlayerCharacter::StartTimeControl()
 {
-	LevelSequencePlayer->Pause();
-	TimeControlOn = true;
+	if (LevelSequenceActor) {
+		LevelSequencePlayer->Pause();
+		PlayerUI->PlayTimeDisplayFadeAnimation(false);
+		PlayerUI->PlaySigilAnimation(false);
+		TimeControlOn = true;
+	}
 }
 
 
 void APlayerCharacter::EndTimeControl()
 {
-	LevelSequencePlayer->Play();
-	TimeControlOn = false;
+	if (LevelSequenceActor) {
+		LevelSequencePlayer->Play();
+		PlayerUI->PlayTimeDisplayFadeAnimation(true);
+		PlayerUI->PlaySigilAnimation(true);
+		TimeControlOn = false;
+	}
 }
+
+/*
+void APlayerCharacter::TimeControlTick()
+{
+	if (TimeControlOn && FMath::IsNearlyZero(FMath::Fmod(LevelTimePercent, 0.1f), 0.0005f)) {
+		PlayerUI->PlaySigilTickSound();
+	}
+}
+*/
