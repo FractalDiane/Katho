@@ -18,6 +18,8 @@ private:
 	float Gravity = 7.4f;
 	UPROPERTY(EditAnywhere)
 	float JumpStrength = 2.8f;
+	UPROPERTY(EditAnywhere)
+	float MouseSensitivity = 1000.f;
 
 	static constexpr float GroundCheckDistance = 58.f;
 

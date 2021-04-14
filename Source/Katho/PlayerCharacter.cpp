@@ -7,12 +7,12 @@
 #include "UI/PlayerUI.h"
 #include "Objects/MovingPlatformComponent.h"
 
-#include <GameFramework/SpringArmComponent.h>
+#include <Blueprint/UserWidget.h>
+#include <Camera/CameraComponent.h>
 #include <Components/BoxComponent.h>
 #include <Components/SkeletalMeshComponent.h>
-#include <Camera/CameraComponent.h>
+#include <GameFramework/SpringArmComponent.h>
 #include <LevelSequence/Public/LevelSequenceActor.h>
-#include <Blueprint/UserWidget.h>
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -63,17 +63,22 @@ void APlayerCharacter::Tick(float DeltaTime)
 
 		PlayerUI->SetTimeSigilPosition(LevelTimePercent, TimeControlOn);
 	}
+
+	FVector2D ViewportSize;
+	GEngine->GameViewport->GetViewportSize(ViewportSize);
+	float MouseX = GetInputAxisValue("CameraH") / ViewportSize.X * MouseSensitivity;
+	float MouseY = GetInputAxisValue("CameraV") / ViewportSize.Y * MouseSensitivity;
 	
 	// Camera movement
 	if (!TimeControlOn) {
-		CameraPivot->AddLocalRotation(FRotator(GetInputAxisValue("CameraV") * 60.f * DeltaTime, GetInputAxisValue("CameraH") * 60.f * DeltaTime, 0));
+		CameraPivot->AddLocalRotation(FRotator(MouseY * 60.f * DeltaTime, MouseX * 60.f * DeltaTime, 0));
 		FRotator Rot = CameraPivot->GetComponentRotation();
 		CameraPivot->SetWorldRotation(FRotator(Rot.Pitch, Rot.Yaw, 0.f));
 	}
 	// Time control
 	else if (LevelSequenceActor) {
 		float Duration = LevelSequencePlayer->GetDuration().AsSeconds();
-		float Result = FMath::Clamp(LevelCurrentTime + GetInputAxisValue("CameraH") * 2.f * DeltaTime, 0.f, Duration);
+		float Result = FMath::Clamp(LevelCurrentTime + MouseX * 2.f * DeltaTime, 0.f, Duration);
 		LevelSequencePlayer->JumpToSeconds(Result);
 	}
 
@@ -85,10 +90,11 @@ void APlayerCharacter::Tick(float DeltaTime)
 		OnGround = GetWorld()->LineTraceSingleByChannel(GroundCheck, GetActorLocation(), GetActorLocation() - FVector(0, 0, GroundCheckDistance), ECC_Visibility);
 		ZVelocity = OnGround ? 0.f : FMath::Max(ZVelocity - Gravity * DeltaTime, -TerminalVelocity);
 
+		// Moving platforms
 		if (GroundCheck.GetActor()) {
-			auto* Comp = Cast<UMovingPlatformComponent>(GroundCheck.GetActor()->GetComponentByClass(UMovingPlatformComponent::StaticClass()));
-			if (Comp) {
-				PlatformMotion = Comp->GetDelta();
+			auto* Platform = Cast<UMovingPlatformComponent>(GroundCheck.GetActor()->GetComponentByClass(UMovingPlatformComponent::StaticClass()));
+			if (Platform) {
+				PlatformMotion = Platform->GetDelta();
 			}
 		}
 	}

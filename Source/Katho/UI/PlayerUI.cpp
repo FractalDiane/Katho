@@ -3,16 +3,23 @@
 
 #include "PlayerUI.h"
 
-#include <Components/Image.h>
-#include <Components/CanvasPanelSlot.h>
 #include <Animation/WidgetAnimation.h>
-#include <Kismet/GameplayStatics.h>
+#include <Components/CanvasPanelSlot.h>
+#include <Components/Image.h>
 
 void UPlayerUI::SetTimeSigilPosition(float Percent, bool TimeControl)
 {
 	float Pos = SigilLeftBound + SigilBarLength * Percent;
 	Cast<UCanvasPanelSlot>(TimeSigil->Slot)->SetPosition(FVector2D(Pos, 0));
 	TimeSigil->SetRenderTransformAngle(SigilTotalRotation * Percent);
+
+	/*if (TimeControl) {
+		if (SoundShouldBePlayed(SigilLeftBound, SigilBarLength, 200.f, PreviousSigilPosition, Pos)) {
+			PlaySound(SoundSigilTick);
+		}
+	}*/
+
+	PreviousSigilPosition = Pos;
 }
 
 
@@ -26,12 +33,6 @@ void UPlayerUI::PlayTimeDisplayFadeAnimation(bool Fadeout)
 }
 
 
-void UPlayerUI::PlaySigilTickSound()
-{
-	UGameplayStatics::PlaySound2D(GetWorld(), SoundSigilTick, 0.3f);
-}
-
-
 void UPlayerUI::PlaySigilAnimation(bool Reverse)
 {
 	if (Reverse) {
@@ -39,4 +40,18 @@ void UPlayerUI::PlaySigilAnimation(bool Reverse)
 	} else {
 		PlayAnimation(AnimSigilSize);
 	}
+}
+
+
+bool UPlayerUI::SoundShouldBePlayed(float A, float B, float C, float PreviousPos, float CurrentPos)
+{
+	float Step = C / (B - A);
+
+	float PreviousPercent = (PreviousPos - A) / (B - A);
+	float CurrentPercent = (CurrentPos - A) / (B - A);
+
+	int32 PreviousSegment = FMath::Floor(PreviousPercent / Step);
+	int32 CurrentSegment = FMath::Floor(CurrentPercent / Step);
+
+	return PreviousSegment != CurrentSegment;
 }
