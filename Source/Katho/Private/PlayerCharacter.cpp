@@ -78,6 +78,7 @@ void APlayerCharacter::Tick(float DeltaTime)
 	if (!TimeControlOn) {
 		CameraPivot->AddLocalRotation(FRotator(MouseY * 60.f * DeltaTime, MouseX * 60.f * DeltaTime, 0));
 		FRotator Rot = CameraPivot->GetComponentRotation();
+		Rot.Pitch = FMath::Clamp(Rot.Pitch, -50.f, 40.f);
 		CameraPivot->SetWorldRotation(FRotator(Rot.Pitch, Rot.Yaw, 0.f));
 	}
 	// Time control
@@ -112,10 +113,12 @@ void APlayerCharacter::Tick(float DeltaTime)
 		float X = GetInputAxisValue("Forward");
 		float Y = GetInputAxisValue("Side");
 
-		FTransform CamXform = Camera->GetComponentTransform();
 		FVector MotionTarget = FVector::ZeroVector;
-		MotionTarget += CamXform.GetRotation().GetAxisY() * Y;
-		MotionTarget += CamXform.GetRotation().GetAxisX() * X;
+		FVector ForwardVec = Camera->GetForwardVector();
+		ForwardVec.Z = 0.f;
+		ForwardVec.Normalize();
+		MotionTarget += ForwardVec * X;
+		MotionTarget += Camera->GetRightVector() * Y;
 		//MotionTarget.Normalize();
 
 		Motion = FMath::Lerp(Motion, MotionTarget, DeltaTime * 10.f);
